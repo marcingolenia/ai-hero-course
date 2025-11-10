@@ -1,7 +1,10 @@
 import ReactMarkdown, { type Components } from "react-markdown";
+import type { Message } from "ai";
+
+export type MessagePart = NonNullable<Message["parts"]>[number];
 
 interface ChatMessageProps {
-  text: string;
+  parts: MessagePart[] | undefined;
   role: string;
   userName: string;
 }
@@ -38,8 +41,50 @@ const Markdown = ({ children }: { children: string }) => {
   return <ReactMarkdown components={components}>{children}</ReactMarkdown>;
 };
 
-export const ChatMessage = ({ text, role, userName }: ChatMessageProps) => {
+const ToolInvocation = ({
+  toolInvocation,
+}: {
+  toolInvocation: MessagePart & { type: "tool-invocation" };
+}) => {
+  const invocation = toolInvocation.toolInvocation;
+  const { state, toolName, args } = invocation;
+
+  return (
+    <div className="mb-4 rounded-lg border border-gray-600 bg-gray-700/50 p-3">
+      <div className="mb-2 text-sm font-semibold text-gray-300">
+        Tool: {toolName}
+      </div>
+      {state === "partial-call" || state === "call" ? (
+        <div className="text-sm text-gray-400">
+          <div className="mb-1">
+            State: {state === "partial-call" ? "Calling..." : "Called"}
+          </div>
+          <div className="rounded bg-gray-800 p-2">
+            <pre className="text-xs">
+              {JSON.stringify(args, null, 2)}
+            </pre>
+          </div>
+        </div>
+      ) : state === "result" ? (
+        <div className="text-sm text-gray-400">
+          <div className="mb-1">Result:</div>
+          <div className="rounded bg-gray-800 p-2">
+            <pre className="text-xs">
+              {JSON.stringify(invocation.result, null, 2)}
+            </pre>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+export const ChatMessage = ({ parts, role, userName }: ChatMessageProps) => {
   const isAI = role === "assistant";
+
+  if (!parts || parts.length === 0) {
+    return null;
+  }
 
   return (
     <div className="mb-6">
@@ -53,7 +98,20 @@ export const ChatMessage = ({ text, role, userName }: ChatMessageProps) => {
         </p>
 
         <div className="prose prose-invert max-w-none">
-          <Markdown>{text}</Markdown>
+          {parts.map((part, index) => {
+            if (part.type === "text") {
+              return <Markdown key={index}>{part.text}</Markdown>;
+            }
+            if (part.type === "tool-invocation") {
+              return (
+                <ToolInvocation
+                  key={index}
+                  toolInvocation={part}
+                />
+              );
+            }
+            return null;
+          })}
         </div>
       </div>
     </div>
