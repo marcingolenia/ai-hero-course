@@ -17,6 +17,9 @@ export const env = createEnv({
     GOOGLE_GENERATIVE_AI_API_KEY: z.string(),
     SERPER_API_KEY: z.string(),
     DATABASE_URL: z.string().url(),
+    LANGFUSE_SECRET_KEY: z.string(),
+    LANGFUSE_PUBLIC_KEY: z.string(),
+    LANGFUSE_BASE_URL: z.string(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
@@ -42,6 +45,9 @@ export const env = createEnv({
     SERPER_API_KEY: process.env.SERPER_API_KEY,
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
+    LANGFUSE_BASE_URL: process.env.LANGFUSE_BASE_URL,
+    LANGFUSE_PUBLIC_KEY: process.env.LANGFUSE_PUBLIC_KEY,
+    LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
