@@ -3,21 +3,40 @@ import Link from "next/link";
 import { auth } from "~/server/auth/index.ts";
 import { ChatPage } from "./chat.tsx";
 import { AuthButton } from "../components/auth-button.tsx";
+import { getChats, getChat } from "~/server/db/queries";
+import type { Message } from "ai";
 
-const chats = [
-  {
-    id: "1",
-    title: "My First Chat",
-  },
-];
-
-const activeChatId = "1";
-
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ id?: string }>;
+}) {
   const session = await auth();
   const userName = session?.user?.name ?? "Guest";
   const isAuthenticated = !!session?.user;
-  const {id: chatId} = await searchParams;
+  const { id: chatIdFromUrl } = await searchParams;
+  const chatId = chatIdFromUrl ?? crypto.randomUUID();
+
+  // Fetch chats if user is authenticated
+  const chats =
+    isAuthenticated && session.user?.id
+      ? await getChats({ userId: session.user.id })
+      : [];
+
+  // Fetch active chat if chatId is present and user is authenticated
+  const activeChat =
+    chatId && isAuthenticated && session.user?.id
+      ? await getChat({ userId: session.user.id, chatId })
+      : null;
+
+  // Map the messages to the correct format for useChat
+  const initialMessages =
+    activeChat?.messages.map((msg) => ({
+      id: msg.id,
+      role: msg.role as "user" | "assistant",
+      parts: msg.content as Message["parts"],
+      content: "",
+    })) ?? [];
 
   return (
     <div className="flex h-screen bg-gray-950">
@@ -29,10 +48,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             {isAuthenticated && (
               <Link
                 href="/"
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="flex size-8 items-center justify-center rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 title="New Chat"
               >
-                <PlusIcon className="h-5 w-5" />
+                <PlusIcon className="size-5" />
               </Link>
             )}
           </div>
@@ -42,9 +61,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             chats.map((chat) => (
               <div key={chat.id} className="flex items-center gap-2">
                 <Link
-                  href={`/?chatId=${chat.id}`}
+                  href={`/?id=${chat.id}`}
                   className={`flex-1 rounded-lg p-3 text-left text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 ${
-                    chat.id === activeChatId
+                    chat.id === chatId
                       ? "bg-gray-700"
                       : "hover:bg-gray-750 bg-gray-800"
                   }`}
@@ -69,7 +88,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </div>
       </div>
 
-      <ChatPage userName={userName} isAuthenticated={isAuthenticated} chatId={chatId} />
+      <ChatPage
+        key={chatId}
+        userName={userName}
+        isAuthenticated={isAuthenticated}
+        chatId={chatId}
+        initialMessages={initialMessages}
+      />
     </div>
   );
 }
