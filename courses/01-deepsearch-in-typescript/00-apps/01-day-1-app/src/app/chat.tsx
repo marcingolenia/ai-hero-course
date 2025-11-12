@@ -4,17 +4,32 @@ import { useChat } from "@ai-sdk/react";
 import { Loader2 } from "lucide-react";
 import { ChatMessage } from "~/components/chat-message";
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SignInModal } from "~/components/sign-in-modal";
+import { useRouter } from "next/navigation";
+import { isNewChatCreated } from "~/utils";
 
 interface ChatProps {
   userName: string;
   isAuthenticated: boolean;
+  chatId: string | undefined;
 }
 
-export const ChatPage = ({ userName, isAuthenticated }: ChatProps) => {
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat();
+export const ChatPage = ({ userName, isAuthenticated, chatId }: ChatProps) => {
+  const { messages, input, handleInputChange, handleSubmit, isLoading, data } = useChat({
+    body: {
+      chatId,
+    },
+  });
   const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    const lastDataItem = data?.[data.length - 1];
+    if (lastDataItem && isNewChatCreated(lastDataItem)) {
+      router.push(`?id=${lastDataItem.chatId}`);
+    }
+  }, [data, router]);
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     if (!isAuthenticated) {
