@@ -1,38 +1,18 @@
+import { data as devData } from "./dev";
+import { data as ciData } from "./ci";
+import { env } from "~/env";
 import { evalite } from "evalite";
-import { askDeepSearch } from "~/deep-search";
 import { checkFactuality } from "./scorer";
+import { askDeepSearch } from "~/deep-search";
 
-evalite("Deep Search Eval", {
-  data: async (): Promise<{ input: string; expected: string }[]> => {
-    return [
-      {
-        input: "What is the latest version of TypeScript?",
-        expected: "The latest version of TypeScript is 5.9.3",
-      },
-      {
-        input: "According to FIVB what are the 3 best men's teams in the world?",
-        expected: "The best teams are Poland, Brazil and Italy",
-      },
-      {
-        input: "What are the main features of Next.js 15?",
-        expected: `
-React 19 Support: Full support for React 19, including new hooks like useActionState, useFormStatus, and useOptimistic, plus experimental React Compiler support.
-Caching Changes: fetch requests and GET Route Handlers are no longer cached by default. Client Router Cache no longer caches Page components by default.
-Async Request APIs: Request-specific APIs like headers, cookies, params, and searchParams are now asynchronous.
-<Form> Component: A new <Form> component extends the HTML <form> element with prefetching, client-side navigation, and progressive enhancement.
-Turbopack Stable: Turbopack is now stable for development, offering faster local server startup and code updates. Turbopack for builds is in alpha.
-Static Route Indicator: A visual indicator during development shows static routes.
-after API: New API (stable) to execute code after a response has finished streaming (previously unstable_after).
-instrumentation.js Stable: New API for server lifecycle observability.
-next.config.ts Support: TypeScript support for next.config.ts.
-ESLint 9 Support: Added support for ESLint 9.
-Navigation hooks: Control routing with onNavigate and useLinkStatus.
-Improved Error Debugging: Enhanced DX and better source maps for the browser and the terminal.
-forbidden / unauthorized (experimental): New APIs to enable more granular authentication error handling.
-`,
-      },
-    ];
-  },
+const data = devData;
+
+if (env.EVAL_DATASET === "ci") {
+  data.push(...ciData);
+} 
+
+evalite("My Eval", {
+  data: async () => data,
   task: async (input) => {
     return askDeepSearch([{
       id: "1",

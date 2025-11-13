@@ -20,6 +20,7 @@ export const env = createEnv({
     LANGFUSE_SECRET_KEY: z.string(),
     LANGFUSE_PUBLIC_KEY: z.string(),
     LANGFUSE_BASE_URL: z.string(),
+    EVAL_DATASET: z.enum(["dev", "ci", "regression"]).default("dev"),
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
@@ -48,6 +49,7 @@ export const env = createEnv({
     LANGFUSE_BASE_URL: process.env.LANGFUSE_BASE_URL,
     LANGFUSE_PUBLIC_KEY: process.env.LANGFUSE_PUBLIC_KEY,
     LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY,
+    EVAL_DATASET: process.env.EVAL_DATASET,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
