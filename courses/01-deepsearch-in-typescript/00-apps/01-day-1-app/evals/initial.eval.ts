@@ -3,6 +3,7 @@ import { data as ciData } from "./ci";
 import { env } from "~/env";
 import { evalite } from "evalite";
 import { checkFactuality } from "./scorer";
+import { checkAnswerRelevancy } from "./answer-relevancy";
 import { askDeepSearch } from "~/deep-search";
 
 const data = devData;
@@ -39,6 +40,16 @@ evalite("My Eval", {
         return checkFactuality({
           question: input,
           groundTruth: expected!,
+          submission: output,
+        });
+      },
+    },
+    {
+      name: "AnswerRelevancy",
+      description: "Checks how relevant the answer is to the question.",
+      scorer: ({ output, input }) => {
+        return checkAnswerRelevancy({
+          question: input,
           submission: output,
         });
       },
