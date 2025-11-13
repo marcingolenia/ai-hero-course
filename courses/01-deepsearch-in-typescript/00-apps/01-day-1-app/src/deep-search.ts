@@ -36,17 +36,12 @@ export const streamFromDeepSearch = (opts: {
 
 CURRENT DATE AND TIME: ${getCurrentDate()}
 
-When answering questions:
+Before you answer the question, you should devise a plan to answer the question. Your plan should be a list of steps.
+You should then execute the plan by calling the tools available to you and updating your plan as you go. The last step should be to answer the question and ALWAYS providing links to the sources you used to answer the question.
 
-1. Always search the web for up-to-date information when relevant and use scrapePages tool to extract the content.
-2. Include at least one markdown link in your response to the source of the information. Ideally add links to all the sources you used to answer the question.
-3. When users ask for "up to date", "latest", "current", or "recent" information, pay close attention to the publication dates in search results. Use the current date (${getCurrentDate()}) to determine how recent the information is and prioritize the most recent sources.
-4. Be thorough but concise in your responses
-
-WORKFLOW - YOU MUST FOLLOW THIS EXACTLY:
-Step 1: Use searchWeb tool to find relevant information
-Step 2: IMMEDIATELY after getting search results, extract the 'link' field from each result and call scrapePages with those URLs
-Step 3: Use the full scraped content (not snippets) to provide your answer`,
+1. Include at least one markdown link in your response to the source of the information. Ideally add links to all the sources you used to answer the question.
+2. When users ask for "up to date", "latest", "current", or "recent" information, pay close attention to the publication dates in search results. Use the current date (${getCurrentDate()}) to determine how recent the information is and prioritize the most recent sources.
+3. Be thorough but concise in your responses`,
     tools: {
       searchWeb: {
         description: "Search the web for current information. Returns search results with titles, links, and snippets. After getting results, you MUST immediately call scrapePages with the 'link' values from the results.",
