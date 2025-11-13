@@ -36,31 +36,75 @@ export async function POST(request: Request) {
     return new Response("No messages provided", { status: 400 });
   }
 
+  // Create trace before any database calls
+  const trace = langfuse.trace({
+    name: "chat",
+    userId: session.user.id,
+  });
+
   // If no chatId is provided, create a new chat with the user's message
   let currentChatId = chatId;
   if (!currentChatId) {
     const newChatId = crypto.randomUUID();
+    const createChatSpan = trace.span({
+      name: "create-chat",
+      input: {
+        userId: session.user.id,
+        chatId: newChatId,
+        title: messages[messages.length - 1]!.content.slice(0, 50) + "...",
+        messageCount: messages.length,
+      },
+    });
+    
     await upsertChat({
       userId: session.user.id,
       chatId: newChatId,
       title: messages[messages.length - 1]!.content.slice(0, 50) + "...",
       messages: messages, // Only save the user's message initially
     });
+    
+    createChatSpan.end({
+      output: {
+        chatId: newChatId,
+      },
+    });
+    
     currentChatId = newChatId;
   } else {
     // Verify the chat belongs to the user
+    const verifyChatSpan = trace.span({
+      name: "verify-chat",
+      input: {
+        chatId: currentChatId,
+        userId: session.user.id,
+      },
+    });
+    
     const chat = await db.query.chats.findFirst({
       where: eq(chats.id, currentChatId),
     });
+    
     if (!chat || chat.userId !== session.user.id) {
+      verifyChatSpan.end({
+        output: {
+          authorized: false,
+        },
+      });
       return new Response("Chat not found or unauthorized", { status: 404 });
     }
+    
+    verifyChatSpan.end({
+      output: {
+        authorized: true,
+        chatId: chat.id,
+        userId: chat.userId,
+      },
+    });
   }
 
-  const trace = langfuse.trace({
+  // Update trace with sessionId now that we have currentChatId
+  trace.update({
     sessionId: currentChatId,
-    name: "chat",
-    userId: session.user.id,
   });
 
   return createDataStreamResponse({
@@ -176,11 +220,28 @@ Step 3: Use the full scraped content (not snippets) to provide your answer`,
             return;
           }
 
+          const updateChatSpan = trace.span({
+            name: "update-chat",
+            input: {
+              userId: session.user.id,
+              chatId: currentChatId,
+              title: lastMessage.content.slice(0, 50) + "...",
+              messageCount: updatedMessages.length,
+            },
+          });
+
           await upsertChat({
             userId: session.user.id,
             chatId: currentChatId,
             title: lastMessage.content.slice(0, 50) + "...",
             messages: updatedMessages,
+          });
+
+          updateChatSpan.end({
+            output: {
+              chatId: currentChatId,
+              messageCount: updatedMessages.length,
+            },
           });
 
           await langfuse.flushAsync();
