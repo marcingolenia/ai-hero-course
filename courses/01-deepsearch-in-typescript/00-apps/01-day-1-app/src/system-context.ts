@@ -110,6 +110,10 @@ export class SystemContext {
     return this.step >= 10;
   }
 
+  incrementStep() {
+    this.step++;
+  }
+
   reportQueries(queries: QueryResult[]) {
     this.queryHistory.push(...queries);
   }

@@ -3,26 +3,6 @@ import { generateObject } from "ai";
 import { model } from "./model";
 import type { SystemContext } from "./system-context";
 
-
-// export interface SearchAction {
-//     type: "search";
-//     query: string;
-//   }
-  
-//   export interface ScrapeAction {
-//     type: "scrape";
-//     urls: string[];
-//   }
-  
-//   export interface AnswerAction {
-//     type: "answer";
-//   }
-  
-//   export type Action =
-//     | SearchAction
-//     | ScrapeAction
-//     | AnswerAction;
-
 export type Action = z.infer<typeof actionSchema>;
 
 export const actionSchema = z.object({
@@ -60,7 +40,8 @@ export const getNextAction = async (
     You are a helpful AI assistant that can search the web, scrape URLs, or answer questions. Your goal is to determine the next best action to take based on the current context.
     `,
     prompt: `Message History:
-${context.getMessageHistory()}
+${context.getQueryHistory()}
+${context.getScrapeHistory()}
 
 Based on this context, choose the next action:
 1. If you need more information, use 'search' with a relevant query
