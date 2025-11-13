@@ -73,15 +73,30 @@ export async function POST(request: Request) {
         });
       }
 
+      const currentDate = new Date().toLocaleString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+        timeZoneName: "short",
+      });
+
       const result = streamText({
         model,
         messages,
         maxSteps: 10,
-        system: `You are a helpful AI assistant with access to real-time web search capabilities. When answering questions:
+        system: `You are a helpful AI assistant with access to real-time web search capabilities. 
+
+CURRENT DATE AND TIME: ${currentDate}
+
+When answering questions:
 
 1. Always search the web for up-to-date information when relevant and use scrapePages tool to extract the content.
-2. Be thorough but concise in your responses
-3. Never include raw URLs - always use markdown link format
+2. When users ask for "up to date", "latest", "current", or "recent" information, pay close attention to the publication dates in search results. Use the current date (${currentDate}) to determine how recent the information is and prioritize the most recent sources.
+3. Be thorough but concise in your responses
+4. Never include raw URLs - always use markdown link format
 
 WORKFLOW - YOU MUST FOLLOW THIS EXACTLY:
 Step 1: Use searchWeb tool to find relevant information
@@ -110,6 +125,7 @@ Step 3: Use the full scraped content (not snippets) to provide your answer`,
                 title: result.title,
                 link: result.link,
                 snippet: result.snippet,
+                date: result.date,
               }));
             },
           },
