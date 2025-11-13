@@ -1,33 +1,32 @@
-import { z } from "zod";
 import { generateObject } from "ai";
-import { model } from "./model";
-import type { SystemContext } from "./system-context";
-
-export type Action = z.infer<typeof actionSchema>;
+import { z } from "zod";
+import { model } from "~/model";
+import { SystemContext } from "~/system-context";
 
 export const actionSchema = z.object({
-    type: z
-    .enum(["search", "scrape", "answer"])
-    .describe(
-        `The type of action to take.
-        - 'search': Search the web for more information.
-        - 'scrape': Scrape a URL.
-        - 'answer': Answer the user's question and complete the loop.`,
-    ),
-    query: z
+  title: z
     .string()
     .describe(
-        "The query to search for. Required if type is 'search'.",
-    )
+      "The title of the action, to be displayed in the UI. Be extremely concise. 'Searching Saka's injury history', 'Checking HMRC industrial action', 'Comparing toaster ovens'",
+    ),
+  reasoning: z.string().describe("The reason you chose this step."),
+  type: z.enum(["search", "scrape", "answer"]).describe(
+    `The type of action to take.
+      - 'search': Search the web for more information.
+      - 'scrape': Scrape a URL.
+      - 'answer': Answer the user's question and complete the loop.`,
+  ),
+  query: z
+    .string()
+    .describe("The query to search for. Only required if type is 'search'.")
     .optional(),
-    urls: z
+  urls: z
     .array(z.string())
-    .describe(
-        "The URLs to scrape. Required if type is 'scrape'.",
-    )
+    .describe("The URLs to scrape. Only required if type is 'scrape'.")
     .optional(),
 });
 
+export type Action = z.infer<typeof actionSchema>;
 
 export const getNextAction = async (
   context: SystemContext,
@@ -40,8 +39,7 @@ export const getNextAction = async (
     You are a helpful AI assistant that can search the web, scrape URLs, or answer questions. Your goal is to determine the next best action to take based on the current context.
     `,
     prompt: `Message History:
-${context.getQueryHistory()}
-${context.getScrapeHistory()}
+${context.getMessageHistory()}
 
 Based on this context, choose the next action:
 1. If you need more information, use 'search' with a relevant query

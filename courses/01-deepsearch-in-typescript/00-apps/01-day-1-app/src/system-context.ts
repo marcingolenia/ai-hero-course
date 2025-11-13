@@ -1,72 +1,4 @@
-import { z } from "zod";
-import { generateObject } from "ai";
-import { model } from "./model";
-
-
-export interface SearchAction {
-    type: "search";
-    query: string;
-  }
-  
-  export interface ScrapeAction {
-    type: "scrape";
-    urls: string[];
-  }
-  
-  export interface AnswerAction {
-    type: "answer";
-  }
-  
-  export type Action =
-    | SearchAction
-    | ScrapeAction
-    | AnswerAction;
-
-
-export const actionSchema = z.object({
-    type: z
-    .enum(["search", "scrape", "answer"])
-    .describe(
-        `The type of action to take.
-        - 'search': Search the web for more information.
-        - 'scrape': Scrape a URL.
-        - 'answer': Answer the user's question and complete the loop.`,
-    ),
-    query: z
-    .string()
-    .describe(
-        "The query to search for. Required if type is 'search'.",
-    )
-    .optional(),
-    urls: z
-    .array(z.string())
-    .describe(
-        "The URLs to scrape. Required if type is 'scrape'.",
-    )
-    .optional(),
-});
-
-
-export const getNextAction = async (
-    context: SystemContext,
-  ) => {
-    const result = await generateObject({
-      model,
-      schema: actionSchema,
-      prompt: `
-  You are a helpful assistant that can search the web, scrape a URL, or answer the user's question.
-  
-  Here is the context:
-  
-  ${context.getQueryHistory()}
-  
-  ${context.getScrapeHistory()}
-      `,
-    });
-  
-    return result.object;
-  };
-
+import type { Message } from "ai";
 
 type QueryResultSearchResult = {
   date: string;
@@ -86,15 +18,18 @@ type ScrapeResult = {
 };
 
 const toQueryResult = (query: QueryResultSearchResult) =>
-  [`### ${query.date} - ${query.title}`, query.url, query.snippet].join(
-    "\n\n",
-  );
+  [`### ${query.date} - ${query.title}`, query.url, query.snippet].join("\n\n");
 
 export class SystemContext {
   /**
    * The current step in the loop
    */
   private step = 0;
+
+  /**
+   * The message history
+   */
+  private readonly messages: Message[];
 
   /**
    * The history of all queries searched
@@ -105,6 +40,19 @@ export class SystemContext {
    * The history of all URLs scraped
    */
   private scrapeHistory: ScrapeResult[] = [];
+
+  constructor(messages: Message[]) {
+    this.messages = messages;
+  }
+
+  getMessageHistory(): string {
+    return this.messages
+      .map((message) => {
+        const role = message.role === "user" ? "User" : "Assistant";
+        return `<${role}>${message.content}</${role}>`;
+      })
+      .join("\n\n");
+  }
 
   shouldStop() {
     return this.step >= 10;
@@ -146,4 +94,3 @@ export class SystemContext {
       .join("\n\n");
   }
 }
-

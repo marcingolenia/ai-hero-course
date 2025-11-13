@@ -1,30 +1,46 @@
-import { generateText } from "ai";
-import { model } from "./model";
-import type { SystemContext } from "./system-context";
+import { streamText, type StreamTextResult } from "ai";
+import { model } from "~/model";
+import { SystemContext } from "./system-context";
 
-export async function answerQuestion(
+export function answerQuestion(
   ctx: SystemContext,
-  userQuestion: string,
-  opts: { isFinal: boolean } = { isFinal: false },
-) {
-  const systemPrompt = opts.isFinal
-    ? `You are a helpful AI assistant. The user has asked a question, and we have gathered some information through web searches and URL scraping. However, we may not have all the information we need to fully answer the question. Please provide your best attempt at answering the question based on the available information. If you don't have enough information, be honest about what you know and what you don't know.`
-    : `You are a helpful AI assistant. The user has asked a question, and we have gathered information through web searches and URL scraping. Based on the information gathered, provide a comprehensive and accurate answer to the user's question.`;
+  opts: {
+    isFinal?: boolean;
+    langfuseTraceId?: string;
+    onFinish: Parameters<typeof streamText>[0]["onFinish"];
+  },
+): StreamTextResult<{}, string> {
+  const { isFinal = false, langfuseTraceId, onFinish } = opts;
 
-  const result = await generateText({
+  return streamText({
     model,
-    system: systemPrompt,
-    prompt: `User Question: ${userQuestion}
+    system: `You are a helpful AI assistant that answers questions based on the information gathered from web searches and scraped content.
 
-Here is the information we have gathered:
+When answering:
+1. Be thorough but concise
+2. Always cite your sources using markdown links
+3. If you're unsure about something, say so
+4. Format URLs as markdown links using [title](url)
+5. Never include raw URLs
+
+${isFinal ? "Note: We may not have all the information needed to answer the question completely. Please provide your best attempt at an answer based on the available information." : ""}`,
+    prompt: `Message History:
+${ctx.getMessageHistory()}
+
+Based on the following context, please answer the question:
 
 ${ctx.getQueryHistory()}
 
-${ctx.getScrapeHistory()}
-
-Please provide a comprehensive answer to the user's question based on the information above.`,
+${ctx.getScrapeHistory()}`,
+    experimental_telemetry: langfuseTraceId
+      ? {
+          isEnabled: true,
+          functionId: "answer-question",
+          metadata: {
+            langfuseTraceId,
+          },
+        }
+      : undefined,
+    onFinish,
   });
-
-  return result.text;
 }
-

@@ -1,68 +1,78 @@
 import { SystemContext } from "./system-context";
 import { getNextAction } from "./get-next-action";
 import { searchSerper } from "./serper";
-import { bulkCrawlWebsites } from "./scraper";
+import { bulkCrawlWebsites } from "~/scraper";
+import { streamText, type StreamTextResult, type Message } from "ai";
 import { answerQuestion } from "./answer-question";
+import type { OurMessageAnnotation } from "~/types";
 
-async function search(ctx: SystemContext, query: string) {
-  const results = await searchSerper(
-    { q: query, num: 10 },
-    undefined,
-  );
+export async function runAgentLoop(
+  messages: Message[],
+  opts: {
+    langfuseTraceId?: string;
+    writeMessageAnnotation?: (annotation: OurMessageAnnotation) => void;
+    onFinish: Parameters<typeof streamText>[0]["onFinish"];
+  },
+): Promise<StreamTextResult<{}, string>> {
+  // A persistent container for the state of our system
+  const ctx = new SystemContext(messages);
 
-  const queryResult = {
-    query,
-    results: results.organic.map((result) => ({
-      date: result.date || "",
-      title: result.title,
-      url: result.link,
-      snippet: result.snippet,
-    })),
-  };
-
-  ctx.reportQueries([queryResult]);
-
-  return queryResult;
-}
-
-async function scrapeUrl(ctx: SystemContext, urls: string[]) {
-  const crawlResult = await bulkCrawlWebsites({ urls });
-
-  const scrapeResults = crawlResult.results.map((r) => ({
-    url: r.url,
-    result: r.result.success
-      ? r.result.data
-      : `Error: ${r.result.error}`,
-  }));
-
-  ctx.reportScrapes(scrapeResults);
-
-  return scrapeResults;
-}
-
-export async function runAgentLoop(userQuestion: string) {
-  const ctx = new SystemContext();
-
+  // A loop that continues until we have an answer
+  // or we've taken 10 actions
   while (!ctx.shouldStop()) {
-    const nextAction = await getNextAction(ctx);
+    // We choose the next action based on the state of our system
+    const nextAction = await getNextAction(ctx, opts);
 
-    if (nextAction.type === "search") {
-      if (!nextAction.query) {
-        throw new Error("Search action requires a query");
-      }
-      await search(ctx, nextAction.query);
-    } else if (nextAction.type === "scrape") {
-      if (!nextAction.urls || nextAction.urls.length === 0) {
-        throw new Error("Scrape action requires URLs");
-      }
-      await scrapeUrl(ctx, nextAction.urls);
-    } else if (nextAction.type === "answer") {
-      return await answerQuestion(ctx, userQuestion, { isFinal: false });
+    // Send the action as an annotation if writeMessageAnnotation is provided
+    if (opts.writeMessageAnnotation) {
+      opts.writeMessageAnnotation({
+        type: "NEW_ACTION",
+        action: nextAction,
+      });
     }
 
+    // We execute the action and update the state of our system
+    if (nextAction.type === "search") {
+      if (!nextAction.query) {
+        throw new Error("Query is required for search action");
+      }
+      const results = await searchSerper(
+        { q: nextAction.query, num: 10 },
+        undefined,
+      );
+      ctx.reportQueries([
+        {
+          query: nextAction.query,
+          results: results.organic.map((result) => ({
+            date: result.date || new Date().toISOString(),
+            title: result.title,
+            url: result.link,
+            snippet: result.snippet,
+          })),
+        },
+      ]);
+    } else if (nextAction.type === "scrape") {
+      if (!nextAction.urls) {
+        throw new Error("URLs are required for scrape action");
+      }
+      const results = await bulkCrawlWebsites({ urls: nextAction.urls });
+      if (results.success) {
+        ctx.reportScrapes(
+          results.results.map(({ url, result }) => ({
+            url,
+            result: result.data,
+          })),
+        );
+      }
+    } else if (nextAction.type === "answer") {
+      return answerQuestion(ctx, { isFinal: false, ...opts });
+    }
+
+    // We increment the step counter
     ctx.incrementStep();
   }
 
-  return await answerQuestion(ctx, userQuestion, { isFinal: true });
+  // If we've taken 10 actions and haven't answered yet,
+  // we ask the LLM to give its best attempt at an answer
+  return answerQuestion(ctx, { isFinal: true, ...opts });
 }
-
