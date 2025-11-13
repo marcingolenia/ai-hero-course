@@ -10,6 +10,10 @@ evalite("Deep Search Eval", {
         expected: "The latest version of TypeScript is 5.9.3",
       },
       {
+        input: "According to FIVB what are the 3 best men's teams in the world?",
+        expected: "The best teams are Poland, Brazil and Italy",
+      },
+      {
         input: "What are the main features of Next.js 15?",
         expected: `
 React 19 Support: Full support for React 19, including new hooks like useActionState, useFormStatus, and useOptimistic, plus experimental React Compiler support.
