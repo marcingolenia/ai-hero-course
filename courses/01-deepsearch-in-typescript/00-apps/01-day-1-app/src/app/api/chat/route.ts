@@ -5,6 +5,8 @@ import { model } from "~/model";
 import { auth } from "~/server/auth";
 import { upsertChat } from "~/server/db/queries";
 import { searchSerper } from "~/serper";
+import { bulkCrawlWebsites } from "~/scraper";
+import { cacheWithRedis } from "~/server/redis/redis";
 import { Langfuse } from "langfuse";
 import { env } from "~/env";
 import { chats } from "~/server/db/schema";
@@ -77,14 +79,14 @@ export async function POST(request: Request) {
         maxSteps: 10,
         system: `You are a helpful AI assistant with access to real-time web search capabilities. When answering questions:
 
-1. Always search the web for up-to-date information when relevant
-2. ALWAYS format URLs as markdown links using the format [title](url)
-3. Be thorough but concise in your responses
-4. If you're unsure about something, search the web to verify
-5. When providing information, always include the source where you found it using markdown links
-6. Never include raw URLs - always use markdown link format
+1. Always search the web for up-to-date information when relevant and use scrapePages tool to extract the content.
+2. Be thorough but concise in your responses
+3. Never include raw URLs - always use markdown link format
 
-Remember to use the searchWeb tool whenever you need to find current information.`,
+WORKFLOW - YOU MUST FOLLOW THIS EXACTLY:
+Step 1: Use searchWeb tool to find relevant information
+Step 2: IMMEDIATELY after getting search results, extract the 'link' field from each result and call scrapePages with those URLs
+Step 3: Use the full scraped content (not snippets) to provide your answer`,
         experimental_telemetry: { 
           isEnabled: true,
           functionId: 'agent',
@@ -94,6 +96,7 @@ Remember to use the searchWeb tool whenever you need to find current information
         },
         tools: {
           searchWeb: {
+            description: "Search the web for current information. Returns search results with titles, links, and snippets. After getting results, you MUST immediately call scrapePages with the 'link' values from the results.",
             parameters: z.object({
               query: z.string().describe("The query to search the web for"),
             }),
@@ -109,6 +112,40 @@ Remember to use the searchWeb tool whenever you need to find current information
                 snippet: result.snippet,
               }));
             },
+          },
+          scrapePages: {
+            description: "Extract the full text content from web pages. You MUST use this tool after getting search results to get complete information from the pages. Do not rely on snippets alone - always scrape the full pages.",
+            parameters: z.object({
+              urls: z.array(z.string()).describe("The URLs from search results that you want to scrape for full content. Extract the 'link' field from each search result."),
+            }),
+            execute: cacheWithRedis(
+              "scrapePages",
+              async ({ urls }: { urls: string[] }) => {
+                const crawlResult = await bulkCrawlWebsites({ urls });
+
+                if (!crawlResult.success) {
+                  // Return error information to the LLM
+                  return {
+                    success: false,
+                    error: crawlResult.error,
+                    results: crawlResult.results.map((r) => ({
+                      url: r.url,
+                      success: r.result.success,
+                      data: r.result.success ? r.result.data : undefined,
+                      error: r.result.success ? undefined : r.result.error,
+                    })),
+                  };
+                }
+
+                return {
+                  success: true,
+                  results: crawlResult.results.map((r) => ({
+                    url: r.url,
+                    data: r.result.data,
+                  })),
+                };
+              },
+            ),
           },
         },
         onFinish: async ({ response }) => {
