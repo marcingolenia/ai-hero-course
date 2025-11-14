@@ -8,6 +8,7 @@ import { answerQuestion } from "./answer-question.ts";
 import type { OurMessageAnnotation } from "./types.ts";
 import { summarizeURL } from "./summarize-url.ts";
 import { queryRewriter } from "./query-rewriter.ts";
+import { checkIfQuestionNeedsClarification } from "./check-question-clarity.ts";
 
 export async function runAgentLoop(
   messages: Message[],
@@ -19,6 +20,39 @@ export async function runAgentLoop(
 ): Promise<StreamTextResult<{}, string>> {
   // A persistent container for the state of our system
   const ctx = new SystemContext(messages);
+
+  // Check if the question needs clarification before entering the query loop
+  const clarificationResult = await checkIfQuestionNeedsClarification(
+    ctx,
+    opts,
+  );
+
+  if (clarificationResult.needsClarification) {
+    return streamText({
+      model,
+      system: `You are a clarification agent.
+Your job is to ask the user for clarification on their question.`,
+      prompt: `Here is the message history:
+
+${ctx.getMessageHistory()}
+
+And here is why the question needs clarification:
+
+${clarificationResult.reason || "The question is unclear or ambiguous."}
+
+Please reply to the user with a clarification request.`,
+      experimental_telemetry: opts.langfuseTraceId
+        ? {
+            isEnabled: true,
+            functionId: "clarification-response",
+            metadata: {
+              langfuseTraceId: opts.langfuseTraceId,
+            },
+          }
+        : undefined,
+      onFinish: opts.onFinish,
+    });
+  }
 
   // A loop that continues until we have an answer
   // or we've taken 10 actions
