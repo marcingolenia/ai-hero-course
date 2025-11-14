@@ -29,9 +29,7 @@ ${ctx.getMessageHistory()}
 
 Based on the following context, please answer the question:
 
-${ctx.getQueryHistory()}
-
-${ctx.getScrapeHistory()}`,
+${ctx.getSearchHistory()}`,
     experimental_telemetry: langfuseTraceId
       ? {
           isEnabled: true,

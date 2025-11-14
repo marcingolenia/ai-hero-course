@@ -1,4 +1,4 @@
-import { LinkIcon, SearchIcon } from "lucide-react";
+import { SearchIcon } from "lucide-react";
 import { useState } from "react";
 import Markdown from "react-markdown";
 import type { OurMessageAnnotation } from "~/types";
@@ -58,20 +58,6 @@ export const ReasoningSteps = ({
                           <SearchIcon className="size-4" />
                           <span>
                             {annotation.action.query}
-                          </span>
-                        </div>
-                      )}
-                      {annotation.action.type ===
-                        "scrape" && (
-                        <div className="mt-2 flex items-center gap-2 text-sm text-gray-400">
-                          <LinkIcon className="size-4" />
-                          <span>
-                            {annotation.action.urls
-                              ?.map(
-                                (url) =>
-                                  new URL(url).hostname,
-                              )
-                              ?.join(", ")}
                           </span>
                         </div>
                       )}

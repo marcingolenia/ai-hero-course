@@ -37,33 +37,37 @@ export async function runAgentLoop(
         throw new Error("Query is required for search action");
       }
       const results = await searchSerper(
-        { q: nextAction.query, num: 10 },
+        { q: nextAction.query, num: 3 },
         undefined,
       );
-      ctx.reportQueries([
-        {
-          query: nextAction.query,
-          results: results.organic.map((result) => ({
-            date: result.date || new Date().toISOString(),
-            title: result.title,
-            url: result.link,
-            snippet: result.snippet,
-          })),
-        },
-      ]);
-    } else if (nextAction.type === "scrape") {
-      if (!nextAction.urls) {
-        throw new Error("URLs are required for scrape action");
-      }
-      const results = await bulkCrawlWebsites({ urls: nextAction.urls });
-      if (results.success) {
-        ctx.reportScrapes(
-          results.results.map(({ url, result }) => ({
-            url,
-            result: result.data,
-          })),
-        );
-      }
+      
+      // Extract URLs from search results
+      const urls = results.organic.map((result) => result.link);
+      
+      // Scrape all URLs from the search results
+      const scrapeResults = await bulkCrawlWebsites({ urls });
+      
+      // Combine search results with scraped content
+      const searchResults = results.organic.map((result) => {
+        // Find the corresponding scrape result for this URL
+        const scrapeResult = scrapeResults.results.find((r) => r.url === result.link);
+        const scrapedContent = scrapeResult?.result.success
+          ? scrapeResult.result.data
+          : "";
+        
+        return {
+          date: result.date || new Date().toISOString(),
+          title: result.title,
+          url: result.link,
+          snippet: result.snippet,
+          scrapedContent,
+        };
+      });
+      
+      ctx.reportSearch({
+        query: nextAction.query,
+        results: searchResults,
+      });
     } else if (nextAction.type === "answer") {
       return answerQuestion(ctx, { isFinal: false, ...opts });
     }
