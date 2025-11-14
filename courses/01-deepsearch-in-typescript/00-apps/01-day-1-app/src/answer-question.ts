@@ -14,7 +14,7 @@ export function answerQuestion(
 
   return streamText({
     model,
-    system: `You are a helpful AI assistant that answers questions based on the information gathered from web searches and scraped content.
+    system: `You are a helpful AI assistant that answers questions based on the information gathered from web searches and summarized content.
 
 When answering:
 1. Be thorough but concise

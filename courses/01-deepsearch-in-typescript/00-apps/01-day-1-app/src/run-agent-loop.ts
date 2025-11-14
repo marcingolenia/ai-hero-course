@@ -5,6 +5,7 @@ import { bulkCrawlWebsites } from "~/scraper";
 import { streamText, type StreamTextResult, type Message } from "ai";
 import { answerQuestion } from "./answer-question";
 import type { OurMessageAnnotation } from "~/types";
+import { summarizeURL } from "./summarize-url";
 
 export async function runAgentLoop(
   messages: Message[],
@@ -36,19 +37,22 @@ export async function runAgentLoop(
       if (!nextAction.query) {
         throw new Error("Query is required for search action");
       }
+      const query = nextAction.query;
       const results = await searchSerper(
-        { q: nextAction.query, num: 3 },
+        { q: query, num: 5 },
         undefined,
       );
       
       // Extract URLs from search results
       const urls = results.organic.map((result) => result.link);
+
+      console.log("urls", urls);
       
       // Scrape all URLs from the search results
       const scrapeResults = await bulkCrawlWebsites({ urls });
       
       // Combine search results with scraped content
-      const searchResults = results.organic.map((result) => {
+      const searchResultsWithContent = results.organic.map((result) => {
         // Find the corresponding scrape result for this URL
         const scrapeResult = scrapeResults.results.find((r) => r.url === result.link);
         const scrapedContent = scrapeResult?.result.success
@@ -64,8 +68,34 @@ export async function runAgentLoop(
         };
       });
       
+      // Summarize all URLs in parallel
+      const summaries = await Promise.all(
+        searchResultsWithContent.map((result) =>
+          summarizeURL({
+            conversation: ctx.getMessageHistory(),
+            scrapedContent: result.scrapedContent,
+            searchMetadata: {
+              date: result.date,
+              title: result.title,
+              url: result.url,
+            },
+            query,
+            langfuseTraceId: opts.langfuseTraceId,
+          }),
+        ),
+      );
+      
+      // Combine search results with summaries
+      const searchResults = searchResultsWithContent.map((result, index) => ({
+        date: result.date,
+        title: result.title,
+        url: result.url,
+        snippet: result.snippet,
+        summary: summaries[index] || "",
+      }));
+      
       ctx.reportSearch({
-        query: nextAction.query,
+        query,
         results: searchResults,
       });
     } else if (nextAction.type === "answer") {
