@@ -1,7 +1,24 @@
 import { SearchIcon } from "lucide-react";
 import { useState } from "react";
 import Markdown from "react-markdown";
-import type { OurMessageAnnotation } from "~/types";
+import type { OurMessageAnnotation, Source } from "~/types";
+
+const Sources = ({ sources }: { sources: Source[] }) => {
+	return (
+		<div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+			{sources.map((source, index) => (
+				<a key={index} href={source.url} target="_blank" rel="noopener noreferrer" className="flex items-start gap-2 rounded border border-gray-700 bg-gray-800 p-3 hover:bg-gray-700">
+					{source.favicon && <img src={source.favicon} alt="" className="mt-0.5 size-4 flex-shrink-0" />}
+					<div className="flex-1">
+						<div className="text-sm font-medium text-gray-200">{source.title}</div>
+						<div className="mt-1 text-xs text-gray-400">{source.snippet}</div>
+					</div>
+				</a>
+			))}
+		</div>
+	);
+};
+
 
 export const ReasoningSteps = ({
     annotations,
@@ -19,6 +36,44 @@ export const ReasoningSteps = ({
         <ul className="space-y-1">
           {annotations.map((annotation, index) => {
             const isOpen = openStep === index;
+            
+            if (annotation.type === "SOURCES") {
+              return (
+                <li key={index} className="relative">
+                  <button
+                    onClick={() =>
+                      setOpenStep(isOpen ? null : index)
+                    }
+                    className={`min-w-34 flex w-full flex-shrink-0 items-center rounded px-2 py-1 text-left text-sm transition-colors ${
+                      isOpen
+                        ? "bg-gray-700 text-gray-200"
+                        : "text-gray-400 hover:bg-gray-800 hover:text-gray-300"
+                    }`}
+                  >
+                    <span
+                      className={`z-10 mr-3 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-gray-500 text-xs font-bold ${
+                        isOpen
+                          ? "border-blue-400 text-white"
+                          : "bg-gray-800 text-gray-300"
+                      }`}
+                    >
+                      {index + 1}
+                    </span>
+                    Sources
+                  </button>
+                  <div
+                    className={`${isOpen ? "mt-1" : "hidden"}`}
+                  >
+                    {isOpen && (
+                      <div className="px-2 py-1">
+                        <Sources sources={annotation.sources} />
+                      </div>
+                    )}
+                  </div>
+                </li>
+              );
+            }
+            
             return (
               <li key={index} className="relative">
                 <button
@@ -52,6 +107,18 @@ export const ReasoningSteps = ({
                           {annotation.action.reasoning}
                         </Markdown>
                       </div>
+                      {annotation.action.feedback && (
+                        <div className="mt-2 rounded border-l-2 border-blue-400 bg-gray-800/50 p-2">
+                          <div className="mb-1 text-xs font-semibold uppercase text-blue-400">
+                            Evaluation Feedback
+                          </div>
+                          <div className="text-sm text-gray-300">
+                            <Markdown>
+                              {annotation.action.feedback}
+                            </Markdown>
+                          </div>
+                        </div>
+                      )}
                       {annotation.action.type ===
                         "continue" && (
                         <div className="mt-2 flex items-center gap-2 text-sm text-gray-400">

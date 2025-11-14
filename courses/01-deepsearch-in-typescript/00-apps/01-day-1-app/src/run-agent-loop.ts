@@ -1,12 +1,13 @@
-import { SystemContext } from "./system-context";
-import { getNextAction } from "./get-next-action";
-import { queryRewriter } from "./query-rewriter";
-import { searchSerper } from "./serper";
-import { bulkCrawlWebsites } from "~/scraper";
+import { SystemContext } from "./system-context.ts";
+import { getNextAction } from "./get-next-action.ts";
+import { searchSerper } from "./serper.ts";
+import { bulkCrawlWebsites } from "~/scraper.ts";
 import { streamText, type StreamTextResult, type Message } from "ai";
-import { answerQuestion } from "./answer-question";
-import type { OurMessageAnnotation } from "~/types";
-import { summarizeURL } from "./summarize-url";
+import { model } from "~/model";
+import { answerQuestion } from "./answer-question.ts";
+import type { OurMessageAnnotation } from "./types.ts";
+import { summarizeURL } from "./summarize-url.ts";
+import { queryRewriter } from "./query-rewriter.ts";
 
 export async function runAgentLoop(
   messages: Message[],
@@ -19,7 +20,6 @@ export async function runAgentLoop(
   // A persistent container for the state of our system
   const ctx = new SystemContext(messages);
 
-
   // A loop that continues until we have an answer
   // or we've taken 10 actions
   while (!ctx.shouldStop()) {
@@ -30,7 +30,7 @@ export async function runAgentLoop(
     const searchResultsPromises = queries.map(async (query) => {
       // 1. Search the web
       const searchResults = await searchSerper(
-        { q: query, num: 5 }, // Reduced from 10 to 5 results per query
+        { q: query, num: 3 }, // Reduced from 10 to 5 results per query
         undefined,
       );
 
@@ -59,6 +59,14 @@ export async function runAgentLoop(
           ]),
       ).values(),
     );
+
+    // 5. Send unique sources to frontend
+    if (opts.writeMessageAnnotation) {
+      opts.writeMessageAnnotation({
+        type: "SOURCES",
+        sources: uniqueSources,
+      });
+    }
 
     // 6. Process each query's results
     const processPromises = allSearchResults.map(async ({ query, results }) => {
@@ -94,7 +102,7 @@ export async function runAgentLoop(
               url: result.link,
             },
             query,
-            langfuseTraceId: opts.langfuseTraceId,
+            langfuseTraceId: opts.langfuseTraceId
           });
 
           return {
@@ -122,6 +130,11 @@ export async function runAgentLoop(
 
     // 8. Decide whether to continue or answer
     const nextAction = await getNextAction(ctx, opts);
+
+    // Store the feedback in the system context only if it exists
+    if (nextAction.feedback) {
+      ctx.setLastFeedback(nextAction.feedback);
+    }
 
     // Send the action as an annotation if writeMessageAnnotation is provided
     if (opts.writeMessageAnnotation) {

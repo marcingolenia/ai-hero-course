@@ -24,6 +24,11 @@ export const queryRewriter = async (
   context: SystemContext,
   opts: { langfuseTraceId?: string } = {},
 ): Promise<QueryPlan> => {
+  const lastFeedback = context.getLastFeedback();
+  const feedbackContext = lastFeedback
+    ? `\n\nPrevious Evaluation Feedback:\n${lastFeedback}\n\nUse this feedback to guide your query generation. Address the specific information gaps and missing attributes mentioned in the feedback.`
+    : "";
+
   const result = await generateObject({
     model,
     schema: queryPlanSchema,
@@ -52,7 +57,9 @@ Message History:
 ${context.getMessageHistory()}
 
 Search History:
-${context.getSearchHistory()}`,
+${context.getSearchHistory()}
+
+${feedbackContext ? `Previous Evaluation Feedback:\n${feedbackContext}\n\nUse this feedback to guide your query generation. Address the specific information gaps and missing attributes mentioned in the feedback.` : ""}`,
     experimental_telemetry: opts.langfuseTraceId
       ? {
           isEnabled: true,
