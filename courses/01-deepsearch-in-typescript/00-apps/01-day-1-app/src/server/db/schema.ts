@@ -104,6 +104,7 @@ export const messages = createTable(
       .references(() => chats.id, { onDelete: "cascade" }),
     role: varchar("role", { length: 32 }).notNull(),
     parts: json("parts").notNull(),
+    annotations: json("annotations"),
     order: integer("order").notNull(),
     createdAt: timestamp("created_at", {
       mode: "date",

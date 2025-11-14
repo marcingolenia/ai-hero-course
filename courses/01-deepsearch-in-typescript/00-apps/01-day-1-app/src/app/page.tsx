@@ -35,6 +35,7 @@ export default async function HomePage({
       role: msg.role as "user" | "assistant",
       parts: msg.content as Message["parts"],
       content: "",
+      annotations: msg.annotations,
     })) ?? [];
 
   return (
@@ -91,7 +92,7 @@ export default async function HomePage({
         userName={userName}
         isAuthenticated={isAuthenticated}
         chatId={chatId}
-        initialMessages={initialMessages}
+        initialMessages={initialMessages as Message[]}
       />
     </div>
   );
